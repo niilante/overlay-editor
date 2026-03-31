@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>withNiiLante Overlay Editor</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        body { margin: 0; padding: 0; background-color: #07111a; }
+        #root { min-height: 100vh; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback } = React;
+
+        // ── CONFIG ─────────────────────────────────────────────────────────────
+        const VIDEOS = [
+            { id:"d1p1", label:"D1P1", sub:"Ghana NLP Research  ·  arXiv 2021",          caption:"I Was In the Lab While Everyone Talked About AI" },
+            { id:"d1p2", label:"D1P2", sub:"Machine Translation Research  ·  arXiv 2021", caption:"Why Your Twi Ads Are Costing You Customers" },
+            { id:"d2p1", label:"D2P1", sub:"NASA Space Apps 2018  ·  Global Nominee",     caption:"Ghana Had Engineers Building for NASA" },
+            { id:"d2p2", label:"D2P2", sub:"African Hackathon 2021  ·  1st Runner-Up",    caption:"We Used AI to Help Ghanaian Farmers. Africa Noticed." },
+            { id:"d3p1", label:"D3P1", sub:"Cybersecurity Alert  ·  CVE-2026-33017",      caption:"Most People Building AI Agents Have No Idea Their Tool Has a Backdoor" },
+            { id:"d3p2", label:"D3P2", sub:"IoT Security  ·  March 2026",                 caption:"3 Million Devices Attacked. The Checklist I Printed." },
+            { id:"d4p1", label:"D4P1", sub:"AI Skills 2026  ·  NVIDIA GTC",               caption:"Most People Use AI Like a Calculator. Winners Use It Like a Staff Member." },
+            { id:"d4p2", label:"D4P2", sub:"Save This  ·  AI Builder Skills",             caption:"5 AI Skills That Will Make You Untouchable in 2026" },
+            { id:"d5p1", label:"D5P1", sub:"AI Commerce 2026  ·  Shopify Agentic",        caption:"You Can Now Shop Inside ChatGPT. Most Businesses In Ghana Don't Know This." },
+            { id:"d5p2", label:"D5P2", sub:"Typeres.com  ·  On-Demand Printing Ghana",    caption:"Behind the Scenes: A 200-Unit Brand Order at Typeres" },
+            { id:"d6p1", label:"D6P1", sub:"WhatsApp Scam Alert  ·  MoMo Safety Ghana",  caption:"Most People Who Lose Their WhatsApp Didn't Know This Message Was Fake" },
+            { id:"d6p2", label:"D6P2", sub:"TikTok Security  ·  Active Phishing Campaign",caption:"TikTok Business Accounts Are Being Actively Targeted. Including Mine." },
+            { id:"d7p1", label:"D7P1", sub:"withNiiLante  ·  Week in Review",             caption:"From NASA to Kumasi. My Week in 60 Seconds." },
+            { id:"d7p2", label:"D7P2", sub:"Community  ·  No Script Tonight",             caption:"Real Talk. What's the One AI Development That Genuinely Worries You?" },
+        ];
+
+        const ALL_PLATFORMS = [
+            { key:"instagram", label:"Instagram", glyph: "\ue055" },
+            { key:"x-twitter", label:"X / Twitter", glyph: "\ue61b" },
+            { key:"snapchat",  label:"Snapchat",  glyph: "\uf2ac" },
+            { key:"tiktok",    label:"TikTok",    glyph: "\ue07b" },
+            { key:"youtube",   label:"YouTube",   glyph: "\uf167" },
+            { key:"linkedin",  label:"LinkedIn",  glyph: "\uf08c" },
+        ];
+
+        const W = 1080, H = 1920, PAD = 60;
+
+        // ── UTILS ──────────────────────────────────────────────────────────────
+        const hexToRgba = (hex, a) => {
+            const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+            return `rgba(${r},${g},${b},${a})`;
+        };
+
+        const rrect = (ctx, x, y, w, h, r) => {
+            ctx.beginPath(); ctx.moveTo(x+r, y); ctx.lineTo(x+w-r, y); ctx.arcTo(x+w,y, x+w,y+r, r);
+            ctx.lineTo(x+w, y+h-r); ctx.arcTo(x+w,y+h, x+w-r,y+h, r);
+            ctx.lineTo(x+r, y+h); ctx.arcTo(x,y+h, x,y+h-r, r);
+            ctx.lineTo(x, y+r); ctx.arcTo(x,y, x+r,y, r); ctx.closePath();
+        };
+
+        const wrapText = (ctx, text, maxW) => {
+            const out = [];
+            text.split("\n").forEach(line => {
+                let cur = "";
+                line.split(" ").forEach(w => {
+                    let test = cur ? cur+" "+w : w;
+                    if (ctx.measureText(test).width > maxW) { out.push(cur); cur = w; }
+                    else cur = test;
+                });
+                if (cur) out.push(cur);
+            });
+            return out;
+        };
+
+        const renderOverlay = (canvas, state, transparent) => {
+            const ctx = canvas.getContext("2d");
+            ctx.clearRect(0, 0, W, H);
+            if (!transparent) { ctx.fillStyle = "#0c1118"; ctx.fillRect(0, 0, W, H); }
+
+            const { topLabel, mainCaption, handle, accent, topOpacity, botOpacity, activePlatforms } = state;
+
+            // Top gradient
+            const tg = ctx.createLinearGradient(0, 0, 0, H * 0.26);
+            tg.addColorStop(0, `rgba(0,0,0,${topOpacity})`); tg.addColorStop(1, "rgba(0,0,0,0)");
+            ctx.fillStyle = tg; ctx.fillRect(0, 0, W, H * 0.26);
+
+            // Accent Line
+            const al = ctx.createLinearGradient(PAD, 0, W-PAD, 0);
+            al.addColorStop(0, "transparent"); al.addColorStop(0.5, accent); al.addColorStop(1, "transparent");
+            ctx.fillStyle = al; ctx.fillRect(PAD, 0, W-PAD*2, 3);
+
+            // Pill & Watermark
+            if (topLabel.trim()) {
+                ctx.font = "400 26px monospace";
+                const tw = ctx.measureText(topLabel).width;
+                ctx.fillStyle = "rgba(17,17,17,0.9)";
+                rrect(ctx, PAD, 50, tw + 60, 50, 25); ctx.fill();
+                ctx.fillStyle = accent; ctx.beginPath(); ctx.arc(PAD + 20, 75, 6, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = "#FFF"; ctx.fillText(topLabel, PAD + 36, 84);
+            }
+
+            // Caption Strip
+            ctx.font = "bold 46px sans-serif";
+            const lines = wrapText(ctx, mainCaption.toUpperCase(), W - PAD*2 - 40);
+            const stripH = (lines.length * 56) + 70;
+            const stripY = (H/2) - (stripH/2);
+            ctx.fillStyle = "rgba(0,0,0,0.88)"; ctx.fillRect(0, stripY, W, stripH);
+            ctx.fillStyle = accent; ctx.fillRect(0, stripY, W, 3); ctx.fillRect(0, stripY + stripH - 3, W, 3);
+            ctx.fillStyle = "#FFF";
+            lines.forEach((l, i) => ctx.fillText(l, PAD + 20, stripY + 65 + (i * 56)));
+
+            // Bottom bar
+            const bg = ctx.createLinearGradient(0, H*0.76, 0, H);
+            bg.addColorStop(0, "rgba(0,0,0,0)"); bg.addColorStop(1, `rgba(0,0,0,${botOpacity})`);
+            ctx.fillStyle = bg; ctx.fillRect(0, H*0.76, W, H*0.24);
+
+            const divY = H * 0.878;
+            let curX = PAD;
+            ctx.font = '44px "Font Awesome 6 Brands"';
+            ALL_PLATFORMS.forEach(p => {
+                if (activePlatforms[p.key]) {
+                    ctx.fillStyle = "#FFF";
+                    ctx.fillText(p.glyph, curX, divY + 75);
+                    curX += 70;
+                }
+            });
+            ctx.font = "400 34px monospace";
+            ctx.fillText(handle, curX + 10, divY + 75);
+        };
+
+        // ── APP ────────────────────────────────────────────────────────────────
+        function App() {
+            const [selected, setSelected] = useState(0);
+            const [state, setState] = useState({
+                topLabel: VIDEOS[0].sub,
+                mainCaption: VIDEOS[0].caption,
+                handle: "@withNiiLante",
+                accent: "#C8952A",
+                topOpacity: 0.8,
+                botOpacity: 0.9,
+                activePlatforms: { instagram: true, "x-twitter": true, tiktok: true, youtube: true }
+            });
+
+            useEffect(() => {
+                const style = document.createElement("style");
+                style.textContent = `@font-face { font-family: "Font Awesome 6 Brands"; src: url("https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.2/webfonts/fa-brands-400.woff2") format("woff2"); }`;
+                document.head.appendChild(style);
+            }, []);
+
+            const download = (trans) => {
+                const c = document.createElement("canvas");
+                c.width = W; c.height = H;
+                renderOverlay(c, state, trans);
+                const a = document.createElement("a");
+                a.download = `overlay-${trans ? 'capcut' : 'preview'}.png`;
+                a.href = c.toDataURL();
+                a.click();
+            };
+
+            const update = (key, val) => setState(s => ({ ...s, [key]: val }));
+
+            return (
+                <div style={{ color: 'white', padding: '40px 20px', textAlign: 'center' }}>
+                    <h1 style={{ color: '#C8952A' }}>withNiiLante Overlay Editor</h1>
+                    
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center', margin: '20px 0' }}>
+                        {VIDEOS.map((v, i) => (
+                            <button key={v.id} onClick={() => { setSelected(i); setState(s => ({ ...s, topLabel: v.sub, mainCaption: v.caption })); }}
+                                style={{ padding: '8px 12px', background: selected === i ? '#C8952A' : '#1a1a1a', border: 'none', color: 'white', cursor: 'pointer', borderRadius: 4 }}>
+                                {v.label}
+                            </button>
+                        ))}
+                    </div>
+
+                    <div style={{ maxWidth: 600, margin: '0 auto', background: '#111827', padding: 30, borderRadius: 15, textAlign: 'left' }}>
+                        <label style={{ opacity: 0.6, fontSize: 12 }}>TOP LABEL</label>
+                        <input style={{ width: '100%', padding: 12, margin: '8px 0 20px', background: '#050505', border: '1px solid #333', color: 'white', borderRadius: 8 }} 
+                            value={state.topLabel} onChange={e => update('topLabel', e.target.value)} />
+
+                        <label style={{ opacity: 0.6, fontSize: 12 }}>MAIN CAPTION</label>
+                        <textarea style={{ width: '100%', height: 80, padding: 12, margin: '8px 0 20px', background: '#050505', border: '1px solid #333', color: 'white', borderRadius: 8 }} 
+                            value={state.mainCaption} onChange={e => update('mainCaption', e.target.value)} />
+
+                        <div style={{ display: 'flex', gap: 15 }}>
+                            <button onClick={() => download(false)} style={{ flex: 1, padding: 15, background: '#333', border: 'none', color: 'white', borderRadius: 8, cursor: 'pointer' }}>Preview PNG</button>
+                            <button onClick={() => download(true)} style={{ flex: 1, padding: 15, background: '#C8952A', border: 'none', color: 'white', borderRadius: 8, cursor: 'pointer', fontWeight: 'bold' }}>Download for CapCut</button>
+                        </div>
+                        <p style={{ fontSize: 11, opacity: 0.4, marginTop: 15 }}>Tip: Use "Download for CapCut" then set Blend Mode to 'Screen' in your editor.</p>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

@@ -8,9 +8,44 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <style>
-        body { margin: 0; padding: 0; background-color: #07111a; font-family: sans-serif; }
-        #root { min-height: 100vh; }
+        body { margin: 0; padding: 0; background-color: #07111a; font-family: sans-serif; color: white; }
+        #root { min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 40px 20px; }
         input, textarea, button { font-family: inherit; }
+        
+        /* Layout */
+        .editor-container { 
+            display: flex; 
+            flex-direction: row; 
+            gap: 40px; 
+            max-width: 1200px; 
+            width: 100%; 
+            justify-content: center;
+            align-items: flex-start;
+        }
+        
+        @media (max-width: 900px) {
+            .editor-container { flex-direction: column; align-items: center; }
+        }
+
+        /* Preview Styling */
+        .preview-pane {
+            width: 320px; /* Scaled down from 1080 */
+            height: 568px; /* Scaled down from 1920 */
+            background: #000;
+            border-radius: 20px;
+            overflow: hidden;
+            border: 8px solid #1f2937;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            position: sticky;
+            top: 20px;
+        }
+        canvas { width: 100%; height: 100%; display: block; }
+
+        /* Form Styling */
+        .editor-pane { flex: 1; max-width: 600px; background: #111827; padding: 30px; borderRadius: 15px; border: 1px solid #1f2937; }
+        .control-group { margin-bottom: 20px; }
+        label { opacity: 0.6; font-size: 11px; font-weight: bold; letter-spacing: 1px; display: block; margin-bottom: 8px; text-transform: uppercase; }
+        
         .platform-btn, .align-btn {
             padding: 8px 12px;
             background: #1a1a1a;
@@ -18,7 +53,7 @@
             color: white;
             cursor: pointer;
             border-radius: 6px;
-            font-size: 12px;
+            font-size: 11px;
             transition: 0.2s;
         }
         .platform-btn.active, .align-btn.active {
@@ -27,15 +62,13 @@
             color: #000;
             font-weight: bold;
         }
-        .control-group { margin-bottom: 25px; }
-        label { opacity: 0.6; fontSize: 11px; font-weight: bold; letter-spacing: 1px; display: block; margin-bottom: 8px; text-transform: uppercase; }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        const { useState, useEffect, useRef } = React;
 
         const VIDEOS = [
             { id:"d1p1", label:"D1P1", sub:"Ghana NLP Research  ·  arXiv 2021",          caption:"I Was In the Lab While Everyone Talked About AI" },
@@ -43,11 +76,7 @@
             { id:"d2p1", label:"D2P1", sub:"NASA Space Apps 2018  ·  Global Nominee",     caption:"Ghana Had Engineers Building for NASA" },
             { id:"d2p2", label:"D2P2", sub:"African Hackathon 2021  ·  1st Runner-Up",    caption:"We Used AI to Help Ghanaian Farmers. Africa Noticed." },
             { id:"d3p1", label:"D3P1", sub:"Cybersecurity Alert  ·  CVE-2026-33017",      caption:"Most People Building AI Agents Have No Idea Their Tool Has a Backdoor" },
-            { id:"d3p2", label:"D3P2", sub:"IoT Security  ·  March 2026",                 caption:"3 Million Devices Attacked. The Checklist I Printed." },
             { id:"d4p1", label:"D4P1", sub:"AI Skills 2026  ·  NVIDIA GTC",               caption:"Most People Use AI Like a Calculator. Winners Use It Like a Staff Member." },
-            { id:"d4p2", label:"D4P2", sub:"Save This  ·  AI Builder Skills",             caption:"5 AI Skills That Will Make You Untouchable in 2026" },
-            { id:"d5p1", label:"D5P1", sub:"AI Commerce 2026  ·  Shopify Agentic",        caption:"You Can Now Shop Inside ChatGPT. Most Businesses In Ghana Don't Know This." },
-            { id:"d5p2", label:"D5P2", sub:"Typeres.com  ·  On-Demand Printing Ghana",    caption:"Behind the Scenes: A 200-Unit Brand Order at Typeres" },
             { id:"d7p1", label:"D7P1", sub:"withNiiLante  ·  Week in Review",             caption:"From NASA to Kumasi. My Week in 60 Seconds." },
         ];
 
@@ -56,11 +85,8 @@
             { key:"x-twitter", label:"X",         glyph: "\ue61b" },
             { key:"tiktok",    label:"TikTok",    glyph: "\ue07b" },
             { key:"youtube",   label:"YouTube",   glyph: "\uf167" },
-            { key:"facebook",  label:"Facebook",  glyph: "\uf09a" },
-            { key:"snapchat",  label:"Snapchat",  glyph: "\uf2ac" },
             { key:"linkedin",  label:"LinkedIn",  glyph: "\uf08c" },
             { key:"whatsapp",  label:"WhatsApp",  glyph: "\uf232" },
-            { key:"threads",   label:"Threads",   glyph: "\ue618" },
         ];
 
         const W = 1080, H = 1920, PAD = 60;
@@ -87,9 +113,18 @@
         };
 
         const renderOverlay = (canvas, state, transparent) => {
+            if (!canvas) return;
             const ctx = canvas.getContext("2d");
             ctx.clearRect(0, 0, W, H);
-            if (!transparent) { ctx.fillStyle = "#0c1118"; ctx.fillRect(0, 0, W, H); }
+            
+            // Background for Preview (Dark Blue) vs Transparent for CapCut
+            if (!transparent) { 
+                ctx.fillStyle = "#0c1118"; 
+                ctx.fillRect(0, 0, W, H); 
+                // Simple placeholder for "video" background in preview
+                ctx.fillStyle = "rgba(255,255,255,0.03)";
+                ctx.fillRect(0, H*0.2, W, H*0.6);
+            }
 
             const { topLabel, mainCaption, handle, accent, topOpacity, botOpacity, activePlatforms, topAlign } = state;
 
@@ -108,7 +143,7 @@
                 ctx.font = "400 26px monospace";
                 const tw = ctx.measureText(topLabel).width;
                 const pillW = tw + 60;
-                let pillX = PAD; // Default Left
+                let pillX = PAD; 
 
                 if (topAlign === 'center') pillX = (W / 2) - (pillW / 2);
                 if (topAlign === 'right') pillX = W - PAD - pillW;
@@ -149,6 +184,7 @@
         };
 
         function App() {
+            const canvasRef = useRef(null);
             const [selected, setSelected] = useState(0);
             const [state, setState] = useState({
                 topLabel: VIDEOS[0].sub,
@@ -160,6 +196,11 @@
                 topAlign: 'left',
                 activePlatforms: { instagram: true, tiktok: true, youtube: true, "x-twitter": true }
             });
+
+            // Live Update Trigger
+            useEffect(() => {
+                renderOverlay(canvasRef.current, state, false);
+            }, [state]);
 
             useEffect(() => {
                 const style = document.createElement("style");
@@ -180,60 +221,70 @@
             const update = (key, val) => setState(s => ({ ...s, [key]: val }));
 
             return (
-                <div style={{ color: 'white', padding: '40px 20px', textAlign: 'center' }}>
-                    <h1 style={{ color: '#C8952A', margin: '0 0 10px' }}>withNiiLante Overlay Editor</h1>
+                <React.Fragment>
+                    <h1 style={{ color: '#C8952A', marginBottom: '30px' }}>withNiiLante Overlay Editor</h1>
                     
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center', margin: '20px auto', maxWidth: 800 }}>
-                        {VIDEOS.map((v, i) => (
-                            <button key={v.id} onClick={() => { setSelected(i); setState(s => ({ ...s, topLabel: v.sub, mainCaption: v.caption })); }}
-                                style={{ padding: '8px 12px', background: selected === i ? '#C8952A' : '#1a1a1a', border: 'none', color: selected === i ? '#000' : 'white', cursor: 'pointer', borderRadius: 4 }}>
-                                {v.label}
-                            </button>
-                        ))}
-                    </div>
-
-                    <div style={{ maxWidth: 600, margin: '0 auto', background: '#111827', padding: 30, borderRadius: 15, textAlign: 'left', border: '1px solid #1f2937' }}>
-                        
-                        <div className="control-group">
-                            <label>Top Label Content</label>
-                            <input style={{ width: '100%', boxSizing: 'border-box', padding: 12, background: '#050505', border: '1px solid #333', color: 'white', borderRadius: 8 }} 
-                                value={state.topLabel} onChange={e => update('topLabel', e.target.value)} />
+                    <div className="editor-container">
+                        {/* Live Preview Pane */}
+                        <div className="preview-pane">
+                            <canvas ref={canvasRef} width={W} height={H} />
                         </div>
 
-                        <div className="control-group">
-                            <label>Top Label Alignment</label>
-                            <div style={{ display: 'flex', gap: 8 }}>
-                                {['left', 'center', 'right'].map(pos => (
-                                    <button key={pos} className={`align-btn ${state.topAlign === pos ? 'active' : ''}`} onClick={() => update('topAlign', pos)}>
-                                        {pos.toUpperCase()}
-                                    </button>
-                                ))}
+                        {/* Controls Pane */}
+                        <div className="editor-pane">
+                            <div className="control-group">
+                                <label>Presets</label>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                    {VIDEOS.map((v, i) => (
+                                        <button key={v.id} onClick={() => { setSelected(i); setState(s => ({ ...s, topLabel: v.sub, mainCaption: v.caption })); }}
+                                            style={{ padding: '6px 10px', background: selected === i ? '#C8952A' : '#1a1a1a', border: 'none', color: selected === i ? '#000' : 'white', cursor: 'pointer', borderRadius: 4, fontSize: '10px' }}>
+                                            {v.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="control-group">
+                                <label>Top Label Alignment</label>
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    {['left', 'center', 'right'].map(pos => (
+                                        <button key={pos} className={`align-btn ${state.topAlign === pos ? 'active' : ''}`} onClick={() => update('topAlign', pos)}>
+                                            {pos.toUpperCase()}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="control-group">
+                                <label>Top Label Text</label>
+                                <input style={{ width: '100%', boxSizing: 'border-box', padding: '12px', background: '#050505', border: '1px solid #333', color: 'white', borderRadius: 8 }} 
+                                    value={state.topLabel} onChange={e => update('topLabel', e.target.value)} />
+                            </div>
+
+                            <div className="control-group">
+                                <label>Main Caption</label>
+                                <textarea style={{ width: '100%', boxSizing: 'border-box', height: 80, padding: '12px', background: '#050505', border: '1px solid #333', color: 'white', borderRadius: 8, resize: 'none' }} 
+                                    value={state.mainCaption} onChange={e => update('mainCaption', e.target.value)} />
+                            </div>
+
+                            <div className="control-group">
+                                <label>Social Platforms</label>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                                    {ALL_PLATFORMS.map(p => (
+                                        <button key={p.key} className={`platform-btn ${state.activePlatforms[p.key] ? 'active' : ''}`} onClick={() => update('activePlatforms', {...state.activePlatforms, [p.key]: !state.activePlatforms[p.key]})}>
+                                            {p.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: 15, marginTop: 30 }}>
+                                <button onClick={() => download(false)} style={{ flex: 1, padding: 15, background: '#1f2937', border: 'none', color: 'white', borderRadius: 8, cursor: 'pointer' }}>Download Preview</button>
+                                <button onClick={() => download(true)} style={{ flex: 1, padding: 15, background: '#C8952A', border: 'none', color: '#000', borderRadius: 8, cursor: 'pointer', fontWeight: 'bold' }}>Download for CapCut</button>
                             </div>
                         </div>
-
-                        <div className="control-group">
-                            <label>Main Caption</label>
-                            <textarea style={{ width: '100%', boxSizing: 'border-box', height: 80, padding: 12, background: '#050505', border: '1px solid #333', color: 'white', borderRadius: 8, resize: 'none' }} 
-                                value={state.mainCaption} onChange={e => update('mainCaption', e.target.value)} />
-                        </div>
-
-                        <div className="control-group">
-                            <label>Social Platforms</label>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                                {ALL_PLATFORMS.map(p => (
-                                    <button key={p.key} className={`platform-btn ${state.activePlatforms[p.key] ? 'active' : ''}`} onClick={() => update('activePlatforms', {...state.activePlatforms, [p.key]: !state.activePlatforms[p.key]})}>
-                                        {p.label}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div style={{ display: 'flex', gap: 15, marginTop: 10 }}>
-                            <button onClick={() => download(false)} style={{ flex: 1, padding: 15, background: '#1f2937', border: 'none', color: 'white', borderRadius: 8, cursor: 'pointer' }}>Preview PNG</button>
-                            <button onClick={() => download(true)} style={{ flex: 1, padding: 15, background: '#C8952A', border: 'none', color: '#000', borderRadius: 8, cursor: 'pointer', fontWeight: 'bold' }}>Download for CapCut</button>
-                        </div>
                     </div>
-                </div>
+                </React.Fragment>
             );
         }
 
